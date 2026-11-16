@@ -23,9 +23,19 @@ _subparsers = parser.add_subparsers(help="subcommand help", dest="subcommand")
 
 gui_parser = _subparsers.add_parser("gui", help="Run the NeoXtractor GUI")
 
+decompile_parser = _subparsers.add_parser(
+    "decompile",
+    help="Decompile a 2017-2018 Identity V script.npk (npkscript; see 'decompile --help')",
+    add_help=False,
+)
+
 arguments = argparse.Namespace()
 
 
 def parse_args():
-    """Parse arguments."""
-    parser.parse_args(namespace=arguments)
+    """Parse arguments. Everything after `decompile` is passed on to npkscript's own parser."""
+    _, rest = parser.parse_known_args(namespace=arguments)
+    if arguments.subcommand == "decompile":
+        arguments.decompile_args = rest
+    elif rest:
+        parser.error(f"unrecognized arguments: {' '.join(rest)}")

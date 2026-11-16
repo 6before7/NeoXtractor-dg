@@ -22,6 +22,7 @@ from gui.widgets.npk_file_list import NPKFileList
 from gui.widgets.preview_widget import PreviewWidget
 from gui.windows.about_window import AboutWindow
 from gui.windows.config_manager import ConfigManagerWindow
+from gui.windows.script_decompile_window import ScriptDecompileWindow
 from gui.windows.settings_window import SettingsWindow
 from gui.windows.viewer_tab_window import ViewerTabWindow
 from gui.windows.id5_path_mapping_window import (
@@ -365,6 +366,12 @@ class MainWindow(QtWidgets.QMainWindow):
             id5_mapping.triggered.connect(self.open_id5_path_mapping)
             self.id5_mapping_action = id5_mapping
 
+            decompile = menu.addAction("Decompile Python Scripts...")
+            decompile.setStatusTip(
+                "2017-2018 Identity V script.npk: recover and decompile the game's Python 2.7 scripts."
+            )
+            decompile.triggered.connect(self.open_script_decompile)
+
             return menu
 
         self.menuBar().addMenu(tools_menu())
@@ -411,6 +418,16 @@ class MainWindow(QtWidgets.QMainWindow):
             len(index.md5_events),
         )
         return index
+
+    def open_script_decompile(self):
+        """Decompile the loaded archive's Python scripts (npkscript)."""
+        archive_file = self.app.property("npk_file")
+        if not isinstance(archive_file, NPKFile) or self._loading_in_progress:
+            QtWidgets.QMessageBox.information(
+                self, "Decompile Python Scripts", "Open a script.npk and wait until it has finished loading."
+            )
+            return
+        ScriptDecompileWindow(archive_file, self.settings_manager, self).exec()
 
     def open_id5_path_mapping(self):
         """Apply the ID5 name tables to the opened package."""

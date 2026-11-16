@@ -19,6 +19,7 @@ dependencies = [
     "xxhash>=4.0.0",
     "cryptography>=46.0.7",
     "flatbuffers>=25.12.19",
+    "uncompyle6>=3.9.3",
 ]
 
 [tool.uv]

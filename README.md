@@ -82,9 +82,28 @@ If a game update adds event names, rebuild the index from the event name list
 python -m id5mapping.wwise.index_builder --events wwise_audio_length_ex.py --out id5mapping/wwise/wwise_event_hash_index.bin
 ```
 
+### Python scripts (2017-2018 Identity V)
+
+**Tools > Decompile Python Scripts...** turns a loaded `script.npk` from the 2017-2018 Identity V betas into
+readable Python source, using `npkscript/`. It recovers the build's shuffled opcode numbers, decompiles every
+module, and, when a Python 2.7 interpreter is set, proves each function by recompiling it and comparing it with the
+game's bytecode. Unproven functions are marked `# [npk_decompile] UNVERIFIED`. Game code is never executed. Details,
+supported builds and output format are in [npkscript/README.md](npkscript/README.md).
+
+Optional extras for the dialog:
+- **Python 2.7**, for verification.
+- **uncompyle2 1.1 source**, for a second decompiler.
+- **A Dec 2017 `script.npk` to align with**, needed for Feb-May 2018 builds.
+
 ### CLI
 
-Command-line interface is still being worked on.
+Only script decompiling is available from the command line so far:
+
+```bash
+neoxtractor decompile path/to/script.npk OUT_DIR [--uncompyle2 DIR] [--align-with DEC2017_SCRIPT_NPK] [--only PATH ...]
+```
+
+(`python -m npkscript ...` does the same from a source checkout; `neoxtractor decompile --help` lists every option.)
 
 ## Development
 
