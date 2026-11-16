@@ -24,6 +24,7 @@ from gui.windows.about_window import AboutWindow
 from gui.windows.config_manager import ConfigManagerWindow
 from gui.windows.settings_window import SettingsWindow
 from gui.windows.viewer_tab_window import ViewerTabWindow
+from gui.windows.id5_script_decompile_window import Id5ScriptDecompileWindow
 from gui.windows.id5_path_mapping_window import (
     Id5PathMappingWindow,
     is_wwise_archive,
@@ -365,6 +366,14 @@ class MainWindow(QtWidgets.QMainWindow):
             id5_mapping.triggered.connect(self.open_id5_path_mapping)
             self.id5_mapping_action = id5_mapping
 
+            id5_scripts = menu.addAction("ID5 Script Decompile...")
+            id5_scripts.setStatusTip(
+                "Identity V only: decompile the Python scripts of a 2017-2018 script.npk."
+            )
+            id5_scripts.setEnabled(self._wwise_enabled())
+            id5_scripts.triggered.connect(self.open_id5_script_decompile)
+            self.id5_scripts_action = id5_scripts
+
             return menu
 
         self.menuBar().addMenu(tools_menu())
@@ -385,10 +394,11 @@ class MainWindow(QtWidgets.QMainWindow):
         return bool(self.config is not None and getattr(self.config, "wwise_event_map", False))
 
     def _update_mapping_action(self) -> None:
-        """Keep the Tools entry in sync with the selected config."""
-        action = getattr(self, "id5_mapping_action", None)
-        if action is not None:
-            action.setEnabled(self._wwise_enabled())
+        """Keep the Identity V Tools entries in sync with the selected config."""
+        for name in ("id5_mapping_action", "id5_scripts_action"):
+            action = getattr(self, name, None)
+            if action is not None:
+                action.setEnabled(self._wwise_enabled())
 
     def _auto_wwise_index(self, archive_file):
         """Activate the bundled hash index and mount the wwise package's banks."""
@@ -411,6 +421,18 @@ class MainWindow(QtWidgets.QMainWindow):
             len(index.md5_events),
         )
         return index
+
+    def open_id5_script_decompile(self):
+        """Decompile the Python scripts of the opened script.npk."""
+        archive_file = self.app.property("npk_file")
+        if not self._wwise_enabled() or not isinstance(archive_file, NPKFile) or self._loading_in_progress:
+            QtWidgets.QMessageBox.information(
+                self,
+                "ID5 Script Decompile",
+                "Select the \"Identity V\" config, open a script.npk and wait until it has loaded.",
+            )
+            return
+        Id5ScriptDecompileWindow(self, archive_file=archive_file, settings_manager=self.settings_manager).exec()
 
     def open_id5_path_mapping(self):
         """Apply the ID5 name tables to the opened package."""
