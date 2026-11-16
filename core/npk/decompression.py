@@ -1,5 +1,6 @@
 """Provides decompression functions."""
 
+import functools
 import struct
 import zlib
 from typing import cast
@@ -163,16 +164,29 @@ def check_nxs3(entry: NPKEntry) -> bool:
     )
 
 
-def check_rotor(entry: NPKEntry) -> bool:
-    """Check whether the payload starts with a ROTOR marker.
+@functools.cache
+def _shared_rotor() -> Rotor:
+    """One rotor for header checks; ``Rotor.decrypt`` restarts from the key on every call."""
+    return init_rotor()
 
-    This is only a 2-byte hint and can collide with an ordinary payload, so
-    callers must treat an ``unpack_rotor`` failure as "not ROTOR" and keep the
-    original bytes instead of failing the entry.
+
+def check_rotor(entry: NPKEntry) -> bool:
+    """Check whether the payload looks like ROTOR-encrypted zlib data.
+
+    The two common markers are the encrypted zlib headers of the default and
+    best compression levels; other levels (used by some repacked archives)
+    are recognised by decrypting the first two bytes and checking for a valid
+    zlib header. This is still a hint that can collide with an ordinary
+    payload, so callers must treat an ``unpack_rotor`` failure as "not ROTOR"
+    and keep the original bytes instead of failing the entry.
     """
-    return entry.data[:2] == bytes([0x1D, 0x04]) or entry.data[:2] == bytes(
-        [0x15, 0x23]
-    )
+    head = entry.data[:2]
+    if head in (b"\x1d\x04", b"\x15\x23"):
+        return True
+    if len(head) < 2:
+        return False
+    cmf, flg = _shared_rotor().decrypt(head)
+    return cmf & 0x0F == 8 and cmf >> 4 <= 7 and (cmf << 8 | flg) % 31 == 0
 
 
 def log_rotor_failure(context: str, exc: Exception) -> str:
