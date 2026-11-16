@@ -82,6 +82,13 @@ If a game update adds event names, rebuild the index from the event name list
 python -m id5mapping.wwise.index_builder --events wwise_audio_length_ex.py --out id5mapping/wwise/wwise_event_hash_index.bin
 ```
 
+### Python scripts (Identity V, 2017-2018)
+
+Also with the **Identity V** config: **Tools > ID5 Script Decompile...** turns an opened 2017-2018 `script.npk`
+into readable Python 2 source. With a Python 2.7 interpreter set, every function is verified by recompiling it
+against the game's bytecode. Code lives in `id5mapping/scripts/`; details, options and supported builds are in
+[docs/identity_v_scripts.md](docs/identity_v_scripts.md).
+
 ### CLI
 
 Command-line interface is still being worked on.
