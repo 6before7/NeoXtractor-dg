@@ -225,7 +225,10 @@ def select(orig_pyc, cands, filename=None):
     order = []
     for i, (name, t, lines, B) in enumerate(texts):
         good = sum(1 for k in O if verdict[k].get(name) == 'same')
-        order.append((not compiles(t), i))   # priority order (most readable first); splicing fixes the rest
+        present = sum(1 for k in O if B is not None and k in B)
+        # a base that compiles and holds the most functions (so every verified version has a place to go),
+        # then priority order (most readable first); splicing picks the best verified text per function
+        order.append((not compiles(t), -present, i))
     order.sort()
     base_i = order[0][-1]
     bname, bt, blines, bB = texts[base_i]

@@ -16,6 +16,9 @@ def instrs(co):
         out.append((i, op, a, n)); i += n
     return out
 
+_NOVAL = object()
+
+
 def norm(co):
     """Instruction list with jump targets as instruction indices; drops NOPs and no-op `JUMP_FORWARD 0`."""
     ins = instrs(co)
@@ -31,26 +34,51 @@ def norm(co):
         if op in JABS and a in at: todo.append(at[a])
         if op not in STOP or op == opcode.opmap['END_FINALLY']: todo.append(k + 1)
     keep = [x for k, x in enumerate(ins) if k in seen and not (x[1] == NOP or (x[1] == JF and x[2] == 0))]
-    # map each byte offset to the index of the first kept instruction at or after it
-    idx = {}; k = 0
-    for off, op, a, n in ins:
-        while k < len(keep) and keep[k][0] < off: k += 1
-        idx[off] = k
-    end = len(keep)
-    def tgt(t): return idx.get(t, end)
-    out = []
-    for off, op, a, n in keep:
+    # items: [offset, name, arg, const value or _NOVAL]; jump args hold the absolute target offset for now
+    LC = opcode.opmap['LOAD_CONST']; IN_OPS = (6, 7)   # COMPARE_OP `in` / `not in`
+    items = []
+    for i, (off, op, a, n) in enumerate(keep):
         name = opcode.opname[op]
-        if op in JREL: arg = ('->', tgt(off + n + a))
-        elif op in JABS: arg = ('->', tgt(a))
-        elif op == opcode.opmap['LOAD_CONST']:
+        if op in JREL: items.append([off, name, ('->', off + n + a), _NOVAL])
+        elif op in JABS: items.append([off, name, ('->', a), _NOVAL])
+        elif op == LC:
             c = co.co_consts[a]
-            arg = ('code', c.co_name) if isinstance(c, types.CodeType) else ('k', type(c).__name__, repr(c))
-        elif op in opcode.hasname: arg = ('n', co.co_names[a])
-        elif op in opcode.haslocal: arg = ('v', co.co_varnames[a])
+            items.append([off, name, ('code', c.co_name) if isinstance(c, types.CodeType) else None,
+                          _NOVAL if isinstance(c, types.CodeType) else c])
+        elif op in opcode.hasname: items.append([off, name, ('n', co.co_names[a]), _NOVAL])
+        elif op in opcode.haslocal: items.append([off, name, ('v', co.co_varnames[a]), _NOVAL])
         elif op in opcode.hasfree:
-            cf = co.co_cellvars + co.co_freevars; arg = ('f', cf[a] if a < len(cf) else a)
-        else: arg = a
+            cf = co.co_cellvars + co.co_freevars
+            items.append([off, name, ('f', cf[a] if a < len(cf) else a), _NOVAL])
+        else: items.append([off, name, a, _NOVAL])
+    # Constant folding differs between the engine's compilers and CPython 2.7.18 (Feb-May 2018 builds do not fold):
+    # fold LOAD_CONST*k + BUILD_TUPLE k, and LOAD_CONST*k + BUILD_LIST k before `in`/`not in`, into one constant
+    # tuple on both sides. Nested tuples fold because folded items are constants again.
+    folded = []
+    for i, it in enumerate(items):
+        k = it[2]
+        is_list_in = (it[1] == 'BUILD_LIST' and i + 1 < len(items) and items[i + 1][1] == 'COMPARE_OP'
+                      and items[i + 1][2] in IN_OPS)
+        if (it[1] == 'BUILD_TUPLE' or is_list_in) and isinstance(k, int) and k > 0 and len(folded) >= k \
+                and all(x[1] == 'LOAD_CONST' and x[3] is not _NOVAL for x in folded[-k:]):
+            vals = tuple(x[3] for x in folded[-k:])
+            first = folded[-k][0]
+            del folded[-k:]
+            folded.append([first, 'LOAD_CONST', None, vals])
+        else:
+            folded.append(it)
+    offs = [x[0] for x in folded]
+    end = len(folded)
+    import bisect
+    def tgt(t):   # index of the first remaining item at or after byte offset t
+        j = bisect.bisect_left(offs, t)
+        return j if j < end else end
+    out = []
+    for off, name, arg, val in folded:
+        if isinstance(arg, tuple) and arg and arg[0] == '->':
+            arg = ('->', tgt(arg[1]))
+        elif name == 'LOAD_CONST' and val is not _NOVAL:
+            arg = ('k', type(val).__name__, repr(val))
         out.append((name, arg))
     # a closure's cell order follows the compiler's name hashing, which differs between Python builds:
     # compare each run of LOAD_CLOSURE as a set
