@@ -16,7 +16,7 @@ jobs:
     strategy:
       matrix:
         include:
-          - os: ubuntu-latest
+          - os: ubuntu-24.04  # ubuntu-latest (26.04) has no Python 3.13.5 for setup-python
             arch: x64
             asset_name: neoxtractor-linux
           - os: windows-latest
